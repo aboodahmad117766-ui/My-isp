@@ -1,9 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
+// ==================== قاعدة البيانات ====================
+class DatabaseHelper {
+  static final DatabaseHelper instance = DatabaseHelper._init();
+  static Database? _database;
+
+  DatabaseHelper._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('isp.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+
+    return await openDatabase(path, version: 1, onCreate: _createDB);
+  }
+
+  Future _createDB(Database db, int version) async {
+    await db.execute('''
+    CREATE TABLE subscribers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT,
+      username TEXT,
+      plan TEXT,
+      amount REAL,
+      end_date TEXT,
+      status TEXT
+    )
+    ''');
+  }
+
+  Future<int> insertSubscriber(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.insert('subscribers', row);
+  }
+
+  Future<List<Map<String, dynamic>>> getSubscribers() async {
+    final db = await instance.database;
+    return await db.query('subscribers', orderBy: 'id DESC');
+  }
+
+  Future<int> deleteSubscriber(int id) async {
+    final db = await instance.database;
+    return await db.delete('subscribers', where: 'id = ?', whereArgs: [id]);
+  }
+}
+
+// ==================== التطبيق الرئيسي ====================
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -14,9 +68,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0D1117),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF161B22),
-        ),
+        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF161B22)),
       ),
       home: const HomePage(),
     );
@@ -40,38 +92,25 @@ class _HomePageState extends State<HomePage> {
     'الأجهزة',
     'الاشتراكات والتجديد',
     'الحسابات والأرباح',
-    'التنبيهات',
-    'المجموعات',
-    'الموظفون',
-    'فحص الاتصال Ping',
-    'سجل العمليات',
-    'الإعدادات',
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(pageTitle),
-      ),
+      appBar: AppBar(title: Text(pageTitle)),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF1F6FEB),
-              ),
+              decoration: BoxDecoration(color: Color(0xFF1F6FEB)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Icon(Icons.wifi, size: 40, color: Colors.white),
                   SizedBox(height: 10),
-                  Text(
-                    'إدارة شبكة الإنترنت',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  Text('إدارة شبكة الإنترنت', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -82,7 +121,6 @@ class _HomePageState extends State<HomePage> {
                 leading: const Icon(Icons.circle, size: 12, color: Colors.grey),
                 title: Text(title),
                 selected: currentIndex == idx,
-                selectedTileColor: const Color(0xFF1F6FEB).withOpacity(0.3),
                 onTap: () {
                   setState(() {
                     currentIndex = idx;
@@ -95,11 +133,14 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      body: currentIndex == 0 ? buildDashboard() : buildPlaceholder(),
+      body: currentIndex == 0
+          ? buildDashboard()
+          : currentIndex == 1
+              ? const SubscribersPage()
+              : buildPlaceholder(),
     );
   }
 
-  // لوحة التحكم
   Widget buildDashboard() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -123,27 +164,11 @@ class _HomePageState extends State<HomePage> {
               Expanded(child: buildStatCard('دخل اليوم', '0', Icons.money, Colors.orange)),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text('آخر الدفعات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(
-              color: const Color(0xFF161B22),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade800),
-            ),
-            child: const Center(
-              child: Text('لا يوجد دفعات مسجلة', style: TextStyle(color: Colors.grey)),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  // كرت الإحصائيات
   Widget buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -169,7 +194,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // الصفحات قيد الإنشاء
   Widget buildPlaceholder() {
     return Center(
       child: Column(
@@ -179,6 +203,117 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 20),
           Text('صفحة "$pageTitle" قيد الإنشاء', style: const TextStyle(fontSize: 18, color: Colors.grey)),
         ],
+      ),
+    );
+  }
+}
+
+// ==================== شاشة المشتركين ====================
+class SubscribersPage extends StatefulWidget {
+  const SubscribersPage({Key? key}) : super(key: key);
+
+  @override
+  State<SubscribersPage> createState() => _SubscribersPageState();
+}
+
+class _SubscribersPageState extends State<SubscribersPage> {
+  List<Map<String, dynamic>> subscribers = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadSubscribers();
+  }
+
+  Future<void> loadSubscribers() async {
+    setState(() => isLoading = true);
+    final data = await DatabaseHelper.instance.getSubscribers();
+    setState(() {
+      subscribers = data;
+      isLoading = false;
+    });
+  }
+
+  Future<void> deleteSubscriber(int id) async {
+    await DatabaseHelper.instance.deleteSubscriber(id);
+    loadSubscribers();
+  }
+
+  void showAddDialog() {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final planController = TextEditingController();
+    final amountController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF161B22),
+        title: const Text('إضافة مشترك جديد'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'الاسم')),
+              TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'الهاتف')),
+              TextField(controller: planController, decoration: const InputDecoration(labelText: 'الخطة')),
+              TextField(controller: amountController, decoration: const InputDecoration(labelText: 'المبلغ'), keyboardType: TextInputType.number),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () async {
+              await DatabaseHelper.instance.insertSubscriber({
+                'name': nameController.text,
+                'phone': phoneController.text,
+                'plan': planController.text,
+                'amount': double.tryParse(amountController.text) ?? 0,
+                'username': '',
+                'end_date': '2024-12-31',
+                'status': 'active',
+              });
+              Navigator.pop(context);
+              loadSubscribers();
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : subscribers.isEmpty
+              ? const Center(child: Text('لا يوجد مشتركون. اضغط + للإضافة'))
+              : ListView.builder(
+                  itemCount: subscribers.length,
+                  itemBuilder: (context, index) {
+                    final s = subscribers[index];
+                    return Card(
+                      color: const Color(0xFF161B22),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        title: Text(s['name'] ?? ''),
+                        subtitle: Text('الهاتف: ${s['phone'] ?? '-'} | الخطة: ${s['plan'] ?? '-'}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => deleteSubscriber(s['id']),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: showAddDialog,
+        backgroundColor: const Color(0xFF1F6FEB),
+        child: const Icon(Icons.add),
       ),
     );
   }
