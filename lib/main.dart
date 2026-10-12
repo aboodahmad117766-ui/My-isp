@@ -1,233 +1,183 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyIspApp());
+  runApp(const MyApp());
 }
 
-class MyIspApp extends StatelessWidget {
-  const MyIspApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MYISP',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
+      theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0D1117),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF1F6FEB),
-          surface: Color(0xFF161B22),
-          error: Color(0xFFCF222E),
-        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF161B22),
-          elevation: 0,
-          centerTitle: true,
         ),
       ),
-      home: const MainScreen(),
+      home: const HomePage(),
     );
   }
 }
 
-// ==================== الشاشة الرئيسية ====================
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({Key? key}) : super(key: key);
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
+class _HomePageState extends State<HomePage> {
+  int currentIndex = 0;
+  String pageTitle = 'لوحة التحكم';
 
-  // قائمة الصفحات
-  final List<Widget> _pages = [
-    const DashboardPage(),
-    const Center(child: Text('صفحة المشتركين - قيد الإنشاء', style: TextStyle(color: Colors.white))),
-    const Center(child: Text('صفحة الأجهزة - قيد الإنشاء', style: TextStyle(color: Colors.white))),
-    const Center(child: Text('صفحة الحسابات - قيد الإنشاء', style: TextStyle(color: Colors.white))),
+  final List<String> menuItems = [
+    'لوحة التحكم',
+    'المشتركون',
+    'الأجهزة',
+    'الاشتراكات والتجديد',
+    'الحسابات والأرباح',
+    'التنبيهات',
+    'المجموعات',
+    'الموظفون',
+    'فحص الاتصال Ping',
+    'سجل العمليات',
+    'الإعدادات',
   ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MYISP - إدارة الشبكة', style: TextStyle(color: Colors.white)),
+        title: Text(pageTitle),
       ),
-      // القائمة الجانبية
       drawer: Drawer(
-        backgroundColor: const Color(0xFF161B22),
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF1F6FEB)),
+              decoration: BoxDecoration(
+                color: Color(0xFF1F6FEB),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Icon(Icons.wifi, size: 40, color: Colors.white),
-                  SizedBox(height: 8),
-                  Text('إدارة شبكة الإنترنت', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 10),
+                  Text(
+                    'إدارة شبكة الإنترنت',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
-            _buildDrawerItem(Icons.dashboard, 'لوحة التحكم', 0),
-            _buildDrawerItem(Icons.people, 'المشتركون', 1),
-            _buildDrawerItem(Icons.router, 'الأجهزة', 2),
-            _buildDrawerItem(Icons.calendar_month, 'الاشتراكات', 3),
-            _buildDrawerItem(Icons.money, 'الحسابات والأرباح', 4),
-            _buildDrawerItem(Icons.notifications, 'التنبيهات', 5),
-            _buildDrawerItem(Icons.group_work, 'المجموعات', 6),
-            _buildDrawerItem(Icons.badge, 'الموظفون', 7),
-            _buildDrawerItem(Icons.network_ping, 'فحص الاتصال Ping', 8),
-            _buildDrawerItem(Icons.history, 'سجل العمليات', 9),
-            const Divider(color: Colors.grey),
-            _buildDrawerItem(Icons.settings, 'الإعدادات', 10),
+            ...menuItems.asMap().entries.map((entry) {
+              int idx = entry.key;
+              String title = entry.value;
+              return ListTile(
+                leading: const Icon(Icons.circle, size: 12, color: Colors.grey),
+                title: Text(title),
+                selected: currentIndex == idx,
+                selectedTileColor: const Color(0xFF1F6FEB).withOpacity(0.3),
+                onTap: () {
+                  setState(() {
+                    currentIndex = idx;
+                    pageTitle = title;
+                  });
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
           ],
         ),
       ),
-      body: _pages[_selectedIndex],
-      // شريط التنقل السفلي
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFF1F6FEB),
-        unselectedItemColor: Colors.grey,
-        backgroundColor: const Color(0xFF161B22),
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'الرئيسية'),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'المشتركون'),
-          BottomNavigationBarItem(icon: Icon(Icons.router), label: 'الأجهزة'),
-          BottomNavigationBarItem(icon: Icon(Icons.money), label: 'الحسابات'),
-        ],
-      ),
+      body: currentIndex == 0 ? buildDashboard() : buildPlaceholder(),
     );
   }
 
-  // دالة مساعدة لبناء عناصر القائمة الجانبية
-  Widget _buildDrawerItem(IconData icon, String title, int index) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey[400]),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      onTap: () {
-        Navigator.pop(context); // إغلاق القائمة
-        // إذا كانت الصفحة موجودة في القائمة السفلية ننتقل إليها
-        if (index < 4) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('صفحة $title قيد الإنشاء حالياً')),
-          );
-        }
-      },
-    );
-  }
-}
-
-// ==================== لوحة التحكم (Dashboard) ====================
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  // لوحة التحكم
+  Widget buildDashboard() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('نظرة عامة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text('نظرة عامة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          // شبكة الإحصائيات
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.5,
-            children: const [
-              StatCard(title: 'إجمالي المشتركين', value: '0', icon: Icons.people, color: Colors.blue),
-              StatCard(title: 'المشتركون النشطون', value: '0', icon: Icons.check_circle, color: Colors.green),
-              StatCard(title: 'الاشتراكات المنتهية', value: '0', icon: Icons.cancel, color: Colors.red),
-              StatCard(title: 'دخل اليوم', value: '0', icon: Icons.attach_money, color: Colors.orange),
+          Row(
+            children: [
+              Expanded(child: buildStatCard('المشتركون', '0', Icons.people, Colors.blue)),
+              const SizedBox(width: 12),
+              Expanded(child: buildStatCard('النشطون', '0', Icons.check_circle, Colors.green)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: buildStatCard('المنتهون', '0', Icons.cancel, Colors.red)),
+              const SizedBox(width: 12),
+              Expanded(child: buildStatCard('دخل اليوم', '0', Icons.money, Colors.orange)),
             ],
           ),
           const SizedBox(height: 24),
-          const Text('آخر الدفعات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text('آخر الدفعات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
               color: const Color(0xFF161B22),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF30363D)),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade800),
             ),
             child: const Center(
-              child: Text('لا يوجد دفعات مسجلة حالياً', style: TextStyle(color: Colors.grey)),
+              child: Text('لا يوجد دفعات مسجلة', style: TextStyle(color: Colors.grey)),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-// ==================== كرت الإحصائيات ====================
-class StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const StatCard({
-    super.key,
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  // كرت الإحصائيات
+  Widget buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF30363D)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade800),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(icon, color: color, size: 20),
+              Text(title, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              Icon(icon, color: color, size: 22),
             ],
           ),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(height: 10),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  // الصفحات قيد الإنشاء
+  Widget buildPlaceholder() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.construction, size: 80, color: Colors.grey),
+          const SizedBox(height: 20),
+          Text('صفحة "$pageTitle" قيد الإنشاء', style: const TextStyle(fontSize: 18, color: Colors.grey)),
         ],
       ),
     );
