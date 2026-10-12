@@ -81,10 +81,11 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+      // هذا الجزء هو المسؤول عن عرض الصفحات
       body: currentIndex == 0
           ? buildDashboard()
           : currentIndex == 1
-              ? const SubscribersPage()
+              ? const SubscribersPage() // هنا نستدعي صفحة المشتركين الجديدة
               : buildPlaceholder(),
     );
   }
@@ -156,7 +157,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ==================== شاشة المشتركين (مع الحفظ المحلي) ====================
+// ==================== شاشة المشتركين (النسخة الجديدة) ====================
 class SubscribersPage extends StatefulWidget {
   const SubscribersPage({Key? key}) : super(key: key);
 
@@ -235,7 +236,7 @@ class _SubscribersPageState extends State<SubscribersPage> {
               if (nameController.text.isEmpty) return;
               
               final newSub = {
-                'id': DateTime.now().millisecondsSinceEpoch, // معرّف فريد
+                'id': DateTime.now().millisecondsSinceEpoch,
                 'name': nameController.text,
                 'phone': phoneController.text,
                 'plan': planController.text,
@@ -274,7 +275,7 @@ class _SubscribersPageState extends State<SubscribersPage> {
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       child: ListTile(
                         title: Text(s['name'] ?? ''),
-                        subtitle: Text('الهاتف: ${s['phone'] ?? '-'} | الخطة: ${s['plan'] ?? '-'}'),
+                        subtitle: Text('الهاتف: ${s['phone'] ?? '-'} | نوع الأشتراك: ${s['plan'] ?? '-'}'),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => deleteSubscriber(s['id']),
