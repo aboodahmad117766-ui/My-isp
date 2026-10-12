@@ -1,63 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
 }
 
-// ==================== قاعدة البيانات ====================
-class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
-
-  DatabaseHelper._init();
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('isp.db');
-    return _database!;
-  }
-
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(path, version: 1, onCreate: _createDB);
-  }
-
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-    CREATE TABLE subscribers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      phone TEXT,
-      username TEXT,
-      plan TEXT,
-      amount REAL,
-      end_date TEXT,
-      status TEXT
-    )
-    ''');
-  }
-
-  Future<int> insertSubscriber(Map<String, dynamic> row) async {
-    final db = await instance.database;
-    return await db.insert('subscribers', row);
-  }
-
-  Future<List<Map<String, dynamic>>> getSubscribers() async {
-    final db = await instance.database;
-    return await db.query('subscribers', orderBy: 'id DESC');
-  }
-
-  Future<int> deleteSubscriber(int id) async {
-    final db = await instance.database;
-    return await db.delete('subscribers', where: 'id = ?', whereArgs: [id]);
-  }
-}
-
-// ==================== التطبيق الرئيسي ====================
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -208,7 +156,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ==================== شاشة المشتركين ====================
+// ==================== شاشة المشتركين (مع الحفظ المحلي) ====================
 class SubscribersPage extends StatefulWidget {
   const SubscribersPage({Key? key}) : super(key: key);
 
@@ -226,20 +174,38 @@ class _SubscribersPageState extends State<SubscribersPage> {
     loadSubscribers();
   }
 
+  // تحميل البيانات من ذاكرة الهاتف
   Future<void> loadSubscribers() async {
-    setState(() => isLoading = true);
-    final data = await DatabaseHelper.instance.getSubscribers();
-    setState(() {
-      subscribers = data;
-      isLoading = false;
-    });
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonString = prefs.getString('subscribers');
+    if (jsonString != null) {
+      setState(() {
+        subscribers = List<Map<String, dynamic>>.from(jsonDecode(jsonString));
+        isLoading = false;
+      });
+    } else {
+      setState(() {
+        subscribers = [];
+        isLoading = false;
+      });
+    }
   }
 
+  // حفظ البيانات في ذاكرة الهاتف
+  Future<void> saveSubscribers() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('subscribers', jsonEncode(subscribers));
+  }
+
+  // حذف مشترك
   Future<void> deleteSubscriber(int id) async {
-    await DatabaseHelper.instance.deleteSubscriber(id);
-    loadSubscribers();
+    setState(() {
+      subscribers.removeWhere((element) => element['id'] == id);
+    });
+    await saveSubscribers();
   }
 
+  // إظهار نافذة إضافة مشترك
   void showAddDialog() {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
@@ -266,17 +232,24 @@ class _SubscribersPageState extends State<SubscribersPage> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () async {
-              await DatabaseHelper.instance.insertSubscriber({
+              if (nameController.text.isEmpty) return;
+              
+              final newSub = {
+                'id': DateTime.now().millisecondsSinceEpoch, // معرّف فريد
                 'name': nameController.text,
                 'phone': phoneController.text,
                 'plan': planController.text,
                 'amount': double.tryParse(amountController.text) ?? 0,
-                'username': '',
                 'end_date': '2024-12-31',
                 'status': 'active',
+              };
+
+              setState(() {
+                subscribers.add(newSub);
               });
+              
+              await saveSubscribers();
               Navigator.pop(context);
-              loadSubscribers();
             },
             child: const Text('حفظ'),
           ),
